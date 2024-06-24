@@ -167,7 +167,7 @@ class UntaggedObject {
     kOldBit = 4,                  // Incremental barrier source.
     kOldAndNotRememberedBit = 5,  // Generational barrier source.
     kImmutableBit = 6,
-    kReservedBit = 7,
+    kReservedBit = 7,             // <cxj> for gc promotion age </cxj>
 
     kSizeTagPos = kReservedBit + 1,  // = 8
     kSizeTagSize = 4,
@@ -261,7 +261,19 @@ class UntaggedObject {
   //   - is transitively immutable
   class ImmutableBit : public BitField<uword, bool, kImmutableBit, 1> {};
 
-  class ReservedBit : public BitField<uword, intptr_t, kReservedBit, 1> {};
+  class ReservedBit : public BitField<uword, bool, kReservedBit, 1> {}; // <cxj> intptr->bool <cxj>
+
+  // <cxj>
+  bool NeedPromoted() const {
+    ASSERT(IsNewObject());
+    return tags_.Read<ReservedBit>();
+  }
+  void SetPromoted() {
+    ASSERT(IsNewObject());
+    ASSERT(!NeedPromoted());
+    tags_.UpdateBool<ReservedBit>(true);
+  }
+  // </cxj>
 
   // Assumes this is a heap object.
   bool IsNewObject() const {

@@ -2796,6 +2796,9 @@ void Object::InitializeObject(uword address,
   ASSERT(class_id != kIllegalCid);
   tags = UntaggedObject::ClassIdTag::update(class_id, tags);
   tags = UntaggedObject::SizeTag::update(size, tags);
+  // <cxj>
+  tags = UntaggedObject::ReservedBit::update(false, tags);
+  // </cxj>
   const bool is_old =
       (address & kNewObjectAlignmentOffset) == kOldObjectAlignmentOffset;
   tags = UntaggedObject::OldBit::update(is_old, tags);

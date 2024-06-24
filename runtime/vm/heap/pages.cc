@@ -83,6 +83,10 @@ PageSpace::PageSpace(Heap* heap, intptr_t max_capacity_in_words)
   UpdateMaxCapacityLocked();
   UpdateMaxUsed();
 
+  // <cxj>
+  OS::PrintErr("Create pagespace %p %ld num_freelists\n", this, (long)num_freelists_);
+  // </cxj>
+
   for (intptr_t i = 0; i < num_freelists_; i++) {
     freelists_[i].Reset();
   }
@@ -1107,8 +1111,10 @@ void PageSpace::CollectGarbageHelper(Thread* thread,
     set_phase(kDone);
     can_verify = true;
   } else if (FLAG_concurrent_sweep && has_reservation) {
+    int64_t concurrent_sweep_start = OS::GetCurrentMonotonicMicros(); // <cxj>
     ConcurrentSweep(isolate_group);
     can_verify = false;
+    OS::PrintErr("concurrent_sweep cost %ld ms", long(OS::GetCurrentMonotonicMicros() - concurrent_sweep_start)); // </cxj>
   } else {
     SweepLarge();
     Sweep(/*exclusive*/ true);
@@ -1523,9 +1529,17 @@ void PageSpaceController::RecordUpdate(SpaceUsage before,
 
   bool concurrent_mark = FLAG_concurrent_mark && (FLAG_marker_tasks != 0);
   if (concurrent_mark) {
+    // <cxj>
+    OS::PrintErr("CMark update soft %ld->%ld hard %ld->%ld", 
+      (long)soft_gc_threshold_in_words_, (long)threshold, 
+      (long)hard_gc_threshold_in_words_, long(kIntptrMax / kWordSize));
+    // </cxj>
     soft_gc_threshold_in_words_ = threshold;
     hard_gc_threshold_in_words_ = kIntptrMax / kWordSize;
   } else {
+    OS::PrintErr("OldSp update soft %ld->%ld hard %ld->%ld", 
+      (long)soft_gc_threshold_in_words_, long(kIntptrMax / kWordSize), 
+      (long)hard_gc_threshold_in_words_, (long)threshold);
     soft_gc_threshold_in_words_ = kIntptrMax / kWordSize;
     hard_gc_threshold_in_words_ = threshold;
   }

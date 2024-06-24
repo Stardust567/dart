@@ -436,12 +436,20 @@ class ScavengerVisitorBase : public ObjectPointerVisitor {
       intptr_t size = raw_obj->untag()->HeapSize(header);
       ASSERT(IsAllocatableInNewSpace(size));
       uword new_addr = 0;
+      // <cxj>
       // Check whether object should be promoted.
-      if (!Page::Of(raw_obj)->IsSurvivor(raw_addr)) {
+      // if (!Page::Of(raw_obj)->IsSurvivor(raw_addr)) {
         // Not a survivor of a previous scavenge. Just copy the object into the
         // to space.
+        // new_addr = TryAllocateCopy(size);
+      // }
+      bool need_promoted = raw_obj->untag()->NeedPromoted();
+      bool next_promoted = false;
+      if (!need_promoted) {
         new_addr = TryAllocateCopy(size);
+        next_promoted = Page::Of(raw_obj)->IsSurvivor(raw_addr);
       }
+      // </cxj>
       if (new_addr == 0) {
         // This object is a survivor of a previous scavenge. Attempt to promote
         // the object. (Or, unlikely, to-space was exhausted by fragmentation.)
@@ -484,7 +492,7 @@ class ScavengerVisitorBase : public ObjectPointerVisitor {
         // release: Setting the mark bit above must not be ordered after a
         // publishing store of this object. Compare Object::Allocate.
         new_obj->untag()->tags_.store(tags, std::memory_order_release);
-      }
+      } 
 
       intptr_t cid = UntaggedObject::ClassIdTag::decode(header);
       if (IsTypedDataClassId(cid)) {
@@ -502,11 +510,18 @@ class ScavengerVisitorBase : public ObjectPointerVisitor {
         } else {
           // Undo to-space allocation.
           tail_->Unallocate(new_addr, size);
+          next_promoted = false; // <cxj> </cxj>
         }
         // Use the winner's forwarding target.
         new_obj = ForwardedObj(header);
       }
+      // <cxj>
+      if (next_promoted) {
+        new_obj->untag()->SetPromoted();
+      }
+      // </cxj>
     }
+
 
     return new_obj;
   }
@@ -818,6 +833,10 @@ Scavenger::Scavenger(Heap* heap, intptr_t max_semi_capacity_in_words)
 
   to_ = new SemiSpace(initial_semi_capacity_in_words);
   idle_scavenge_threshold_in_words_ = initial_semi_capacity_in_words;
+
+  // <cxj>
+  OS::PrintErr("Create Scavenger %p %ld words\n", this, (long)initial_semi_capacity_in_words);
+  // </cxj>
 
   UpdateMaxHeapCapacity();
   UpdateMaxHeapUsage();

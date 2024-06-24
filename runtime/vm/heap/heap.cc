@@ -226,6 +226,10 @@ void Heap::CheckExternalGC(Thread* thread) {
   if (new_space_.ExternalInWords() >= (4 * new_space_.CapacityInWords())) {
     // Attempt to free some external allocation by a scavenge. (If the total
     // remains above the limit, next external alloc will trigger another.)
+    // <cxj>
+    OS::PrintErr("new space ExternalInWords(%ld) > 4 * CapacityInWords(%ld)\n", 
+      (long)new_space_.ExternalInWords(), (long)new_space_.CapacityInWords());
+    // </cxj>
     CollectGarbage(thread, GCType::kScavenge, GCReason::kExternal);
     // Promotion may have pushed old space over its limit. Fall through for old
     // space GC check.
@@ -1030,11 +1034,25 @@ void Heap::RecordBeforeGC(GCType type, GCReason reason) {
   stats_.before_.new_ = new_space_.GetCurrentUsage();
   stats_.before_.old_ = old_space_.GetCurrentUsage();
   stats_.before_.store_buffer_ = isolate_group_->store_buffer()->Size();
+  // <cxj>
+  // if (new_space_.CapacityInWords() != 0)
+  // OS::PrintErr("ISG:%s gc start new(%ld/%ld/%ld) old(%ld/%ld) %s %s\n", isolate_group()->source()->name, 
+  //   (long int)new_space_.UsedInWords(), (long int)new_space_.CapacityInWords(), (long)new_space_.ThresholdInWords(),
+  //   (long int)old_space_.UsedInWords(), (long int)old_space_.CapacityInWords(),
+  //   GCTypeToString(type), GCReasonToString(reason));
+  // </cxj>
 }
 
 void Heap::RecordAfterGC(GCType type) {
   stats_.after_.micros_ = OS::GetCurrentMonotonicMicros();
   int64_t delta = stats_.after_.micros_ - stats_.before_.micros_;
+  // <cxj>
+  if (new_space_.CapacityInWords() != 0)
+  OS::PrintErr("ISG:%s gc endat new(%ld/%ld/%ld) old(%ld/%ld) %s %ld\n", isolate_group()->source()->name,
+    (long int)new_space_.UsedInWords(), (long int)new_space_.CapacityInWords(), (long)new_space_.ThresholdInWords(),
+    (long int)old_space_.UsedInWords(), (long int)old_space_.CapacityInWords(), 
+    GCTypeToString(type), (long)delta);
+  // </cxj>
   if (stats_.type_ == GCType::kScavenge) {
     new_space_.AddGCTime(delta);
     new_space_.IncrementCollections();
